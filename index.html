@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aether — Real-Time Weather Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="theme-clear-day">
+  <!-- Dynamic Atmospheric Background Orbs -->
+  <div class="ambient-canvas" aria-hidden="true">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <div class="app-shell">
+    <!-- Top Header & Search Bar -->
+    <header class="top-nav glass-panel">
+      <div class="brand">
+        <div class="brand-logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+          </svg>
+        </div>
+        <div>
+          <span class="brand-title">Aether</span>
+          <span class="brand-subtitle">Weather Intelligence</span>
+        </div>
+      </div>
+
+      <form id="searchForm" class="search-bar" autocomplete="off">
+        <div class="search-input-wrap">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            id="cityInput"
+            type="text"
+            placeholder="Search any city or postal code (e.g., New Delhi, Tokyo, London)..."
+            aria-label="Search city"
+          />
+          <button id="clearSearchBtn" type="button" class="icon-clear-btn hidden" aria-label="Clear search">
+            &times;
+          </button>
+        </div>
+        <button type="submit" class="btn-primary">Search</button>
+      </form>
+
+      <div class="header-actions">
+        <button id="locateBtn" type="button" class="btn-secondary" title="Detect my current location">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M12 2v3" /><path d="M12 19v3" /><path d="M2 12h3" /><path d="M19 12h3" />
+            <circle cx="12" cy="12" r="7" />
+          </svg>
+          <span>Current Location</span>
+        </button>
+
+        <div class="unit-toggle" role="group" aria-label="Temperature & Speed Units">
+          <button id="unitMetricBtn" type="button" class="unit-btn active" aria-pressed="true">°C · km/h</button>
+          <button id="unitImperialBtn" type="button" class="unit-btn" aria-pressed="false">°F · mph</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Search Disambiguation & Quick Cities Bar -->
+    <section class="Utility-bar glass-panel" aria-label="Quick Locations">
+      <div id="searchResultsRow" class="search-matches hidden">
+        <span class="utility-label">Matching locations:</span>
+        <div id="searchResultsList" class="chip-list"></div>
+      </div>
+      <div class="quick-cities">
+        <span class="utility-label">Popular hubs:</span>
+        <div class="chip-list">
+          <button type="button" class="city-chip" data-name="New Delhi" data-country="India" data-lat="28.6139" data-lon="77.2090">New Delhi</button>
+          <button type="button" class="city-chip" data-name="Mumbai" data-country="India" data-lat="19.0760" data-lon="72.8777">Mumbai</button>
+          <button type="button" class="city-chip" data-name="Bengaluru" data-country="India" data-lat="12.9716" data-lon="77.5946">Bengaluru</button>
+          <button type="button" class="city-chip" data-name="London" data-country="United Kingdom" data-lat="51.5072" data-lon="-0.1276">London</button>
+          <button type="button" class="city-chip" data-name="Tokyo" data-country="Japan" data-lat="35.6762" data-lon="139.6503">Tokyo</button>
+          <button type="button" class="city-chip" data-name="New York" data-country="United States" data-lat="40.7128" data-lon="-74.0060">New York</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Error / Offline Notice Banner -->
+    <div id="errorBanner" class="error-banner hidden" role="alert">
+      <div class="error-content">
+        <svg class="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+        <span id="errorMessage">Unable to reach live weather servers. Displaying verified cached data.</span>
+      </div>
+      <button id="retryBtn" type="button" class="btn-retry">Retry Connection</button>
+    </div>
+
+    <!-- Main Dashboard Grid -->
+    <main id="dashboardMain" class="dashboard-grid">
+      <!-- Left Column: Hero Weather Card & 24-Hour Timeline -->
+      <div class="main-column">
+        <!-- Hero Current Weather Card -->
+        <section class="hero-card glass-panel" aria-label="Current Weather Conditions">
+          <div id="loadingOverlay" class="loading-overlay hidden" aria-hidden="true">
+            <div class="spinner"></div>
+            <span>Synchronizing atmospheric telemetry...</span>
+          </div>
+
+          <div class="hero-top">
+            <div class="status-pill">
+              <span id="liveDot" class="status-dot live"></span>
+              <span id="statusText">Live Telemetry · Open-Meteo</span>
+            </div>
+            <span id="localTimeLabel" class="timestamp-label">Updated just now</span>
+          </div>
+
+          <div class="hero-body">
+            <div class="hero-location-info">
+              <h1 id="locationName" class="location-title">New Delhi, India</h1>
+              <p id="coordinatesLabel" class="coords-subtitle">28.61°N, 77.21°E · Asia/Kolkata</p>
+              <div class="condition-badge-wrap">
+                <span id="conditionLabel" class="condition-pill">Mainly Clear</span>
+                <span id="dayNightBadge" class="day-night-pill">Nighttime</span>
+              </div>
+            </div>
+
+            <div class="hero-temp-cluster">
+              <div id="heroWeatherIcon" class="hero-icon-box" aria-hidden="true"></div>
+              <div class="temp-readout">
+                <div id="currentTemp" class="primary-temp">23°C</div>
+                <div class="temp-meta">
+                  <span id="feelsLikeTemp">Feels like 22°C</span>
+                  <span class="meta-divider">•</span>
+                  <span id="highLowTemp">H: 28°C · L: 14°C</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 6 Core Weather Telemetry Cards -->
+        <section class="metrics-section" aria-label="Detailed Weather Parameters">
+          <div class="section-header">
+            <h2 class="section-title">Atmospheric Telemetry</h2>
+            <span class="section-caption">Real-time surface observations</span>
+          </div>
+
+          <div class="metrics-grid">
+            <!-- 1. Temperature -->
+            <article class="metric-card glass-panel">
+              <div class="metric-header">
+                <span class="metric-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z" /></svg>
+                </span>
+                <span class="metric-name">Temperature</span>
+              </div>
+              <div id="cardTempValue" class="metric-value">23°C</div>
+              <p id="cardTempFooter" class="metric-footer">2m above ground surface</p>
+            </article>
+
+            <!-- 2. Feels Like -->
+            <article class="metric-card glass-panel">
+              <div class="metric-header">
+                <span class="metric-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 0 1 5 5v6a5 5 0 0 1-10 0V7a5 5 0 0 1 5-5Z" /><path d="M12 18v4" /><path d="M8 22h8" /></svg>
+                </span>
+                <span class="metric-name">Feels Like</span>
+              </div>
+              <div id="cardFeelsValue" class="metric-value">22°C</div>
+              <p id="cardFeelsFooter" class="metric-footer">Apparent thermal index</p>
+            </article>
+
+            <!-- 3. Humidity -->
+            <article class="metric-card glass-panel">
+              <div class="metric-header">
+                <span class="metric-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" /></svg>
+                </span>
+                <span class="metric-name">Humidity</span>
+              </div>
+              <div id="cardHumidityValue" class="metric-value">40%</div>
+              <div class="progress-bar-track">
+                <div id="humidityBar" class="progress-bar-fill" style="width: 40%"></div>
+              </div>
+              <p id="cardHumidityFooter" class="metric-footer">Comfortable moisture level</p>
+            </article>
+
+            <!-- 4. Wind Speed -->
+            <article class="metric-card glass-panel">
+              <div class="metric-header">
+                <span class="metric-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2" /><path d="M9.6 4.6A2 2 0 1 1 11 8H2" /><path d="M12.6 19.4A2 2 0 1 0 14 16H2" /></svg>
+                </span>
+                <span class="metric-name">Wind Speed</span>
+              </div>
+              <div id="cardWindValue" class="metric-value">10 km/h</div>
+              <p id="cardWindFooter" class="metric-footer">Direction: NW (315°)</p>
+            </article>
+
+            <!-- 5. Visibility -->
+            <article class="metric-card glass-panel">
+              <div class="metric-header">
+                <span class="metric-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+                </span>
+                <span class="metric-name">Visibility</span>
+              </div>
+              <div id="cardVisibilityValue" class="metric-value">10.0 km</div>
+              <p id="cardVisibilityFooter" class="metric-footer">Clear horizontal sightline</p>
+            </article>
+
+            <!-- 6. Weather Condition & Pressure -->
+            <article class="metric-card glass-panel">
+              <div class="metric-header">
+                <span class="metric-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="m16.24 7.76-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z" /></svg>
+                </span>
+                <span class="metric-name">Conditions</span>
+              </div>
+              <div id="cardConditionValue" class="metric-value metric-value-text">Mainly Clear</div>
+              <p id="cardPressureFooter" class="metric-footer">Surface pressure: 1014 hPa</p>
+            </article>
+          </div>
+        </section>
+
+        <!-- Hourly Forecast Strip -->
+        <section class="hourly-section glass-panel" aria-label="Hourly Forecast">
+          <div class="section-header">
+            <h2 class="section-title">Next 12 Hours</h2>
+            <span id="timezoneBadge" class="section-caption">Local Time</span>
+          </div>
+          <div id="hourlyContainer" class="hourly-scroll"></div>
+        </section>
+      </div>
+
+      <!-- Right Column: 7-Day Outlook & Sun Cycle -->
+      <aside class="side-column">
+        <section class="daily-section glass-panel" aria-label="7-Day Weather Forecast">
+          <div class="section-header">
+            <h2 class="section-title">7-Day Outlook</h2>
+            <span class="section-caption">Daily range</span>
+          </div>
+          <div id="dailyContainer" class="daily-list"></div>
+        </section>
+
+        <section class="sun-card glass-panel" aria-label="Solar Cycle">
+          <div class="section-header">
+            <h2 class="section-title">Solar Cycle</h2>
+            <span class="section-caption">Sunrise &amp; Sunset</span>
+          </div>
+          <div class="sun-grid">
+            <div class="sun-item">
+              <span class="sun-label">Sunrise</span>
+              <span id="sunriseValue" class="sun-time">06:46 AM</span>
+            </div>
+            <div class="sun-divider"></div>
+            <div class="sun-item">
+              <span class="sun-label">Sunset</span>
+              <span id="sunsetValue" class="sun-time">05:26 PM</span>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </main>
+
+    <footer class="app-footer">
+      <span>Aether Weather Studio · Ignite Club Week 9 Project 1</span>
+      <span>Powered by <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo API</a></span>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
